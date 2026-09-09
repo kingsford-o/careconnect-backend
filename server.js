@@ -26,6 +26,7 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:5173',
   'http://192.168.92.1:5173',
   'http://172.30.112.1:5173',
+  'https://careconnect-frontend-ashy.vercel.app',
 ].filter(Boolean));
 
 const isAllowedDevelopmentOrigin = (origin) => {
