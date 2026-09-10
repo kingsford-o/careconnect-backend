@@ -577,7 +577,7 @@ app.post('/api/auth/oauth/callback', async (req, res) => {
 
     // Verify the access token with Supabase
     const { data: { user }, error: verifyError } = await supabase.auth.getUser(accessToken);
-    
+
     if (verifyError || !user) {
       return res.status(401).json({ error: 'Invalid access token' });
     }
@@ -587,7 +587,7 @@ app.post('/api/auth/oauth/callback', async (req, res) => {
       .from('users')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     let userData;
     let doctorProfile = null;
@@ -596,15 +596,15 @@ app.post('/api/auth/oauth/callback', async (req, res) => {
     if (existingUser) {
       // User exists, return their data
       userData = existingUser;
-      
+
       // If doctor, fetch profile
       if (existingUser.role === 'doctor') {
         const { data: docData } = await supabase
           .from('doctors')
           .select('*')
           .eq('user_id', user.id)
-          .single();
-        
+          .maybeSingle();
+
         if (docData) {
           doctorProfile = docData;
           profileComplete = isDoctorProfileComplete(docData);
@@ -635,10 +635,12 @@ app.post('/api/auth/oauth/callback', async (req, res) => {
           .from('users')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (concurrentUserError || !concurrentUser) throw concurrentUserError || insertError;
-        userData = concurrentUser;
+        if (concurrentUserError) throw concurrentUserError;
+        userData = concurrentUser || profile;
+      } else {
+        userData = profile;
       }
 
       // Create role-specific profile
@@ -656,18 +658,16 @@ app.post('/api/auth/oauth/callback', async (req, res) => {
             bio: '',
             verification_status: 'pending'
           }, { onConflict: 'user_id', ignoreDuplicates: true });
-        
+
         if (doctorError) throw doctorError;
         profileComplete = false;
       } else if (resolvedRole === 'patient') {
         const { error: patientError } = await supabase
           .from('patients')
           .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true });
-        
+
         if (patientError) throw patientError;
       }
-
-      if (!userData) userData = profile;
     }
 
     res.json({
